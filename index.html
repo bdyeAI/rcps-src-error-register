@@ -628,14 +628,6 @@ import {
 /* =========================================================================
    SETUP — fill these in before deploying. See SETUP.md for full steps.
    ========================================================================= */
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAL2Sf74pAv6N0D4g7NHfhzG7EjeXh0eRM",
   authDomain: "rcps-src-error-register.firebaseapp.com",
@@ -646,9 +638,6 @@ const firebaseConfig = {
   measurementId: "G-P5YWV0EFHF"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 // Restrict sign-in to your division's Google Workspace domain, e.g. "radford.k12.va.us".
 // Set to null to allow any Google account (not recommended for a shared internal tool).
 const ALLOWED_EMAIL_DOMAIN = "rcps.org";
