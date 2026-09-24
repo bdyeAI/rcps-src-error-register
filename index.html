@@ -523,6 +523,24 @@
     padding: 10px 18px;
   }
   #googleSignInBtn:hover { background: var(--paper); }
+  .gate-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .ms-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--paper-raised);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-weight: 600;
+    padding: 10px 18px;
+  }
+  .ms-btn:hover { background: var(--paper); }
   .gate-error {
     margin-top: 14px;
     font-size: 12.5px;
@@ -561,8 +579,11 @@
 <div id="signInGate">
   <div class="gate-card">
     <h1>SRC Fall Error Register</h1>
-    <p>Sign in with your school division Google account to view and update the shared error register.</p>
-    <button id="googleSignInBtn">Sign in with Google</button>
+    <p>Sign in with your school division account to view and update the shared error register.</p>
+    <div class="gate-buttons">
+      <button id="googleSignInBtn">Sign in with Google</button>
+      <button id="microsoftSignInBtn" class="ms-btn">Sign in with Microsoft</button>
+    </div>
     <div class="gate-error" id="gateError"></div>
     <div class="gate-setup-note" id="gateSetupNote"></div>
   </div>
@@ -663,7 +684,7 @@ import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 
 /* =========================================================================
@@ -684,7 +705,7 @@ const firebaseConfig = {
 const ALLOWED_EMAIL_DOMAIN = "rcps.org";
 // Specific outside accounts to allow in addition to the domain above (lowercase, exact match).
 // e.g. ["jane.smith@gmail.com"] — leave empty [] if nobody outside the domain needs access.
-const EXTRA_ALLOWED_EMAILS = ["stparrish@k12.com"];
+const EXTRA_ALLOWED_EMAILS = ["samanthaparrish@gilesk12.net"];
 /* ========================================================================= */
 
 function isEmailAllowed(email){
@@ -813,13 +834,17 @@ if (!CONFIG_IS_PLACEHOLDER){
       document.getElementById('gateSetupNote').textContent =
         'This page hasn\'t been configured yet — paste your Firebase project settings into the firebaseConfig block near the top of the <script> tag (see SETUP.md), then reload.';
       document.getElementById('googleSignInBtn').disabled = true;
+      document.getElementById('microsoftSignInBtn').disabled = true;
       return;
     }
-    var provider = new GoogleAuthProvider();
+
+    var googleProvider = new GoogleAuthProvider();
     if (ALLOWED_EMAIL_DOMAIN && EXTRA_ALLOWED_EMAILS.length === 0){
-      provider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
+      googleProvider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
     }
-    document.getElementById('googleSignInBtn').addEventListener('click', async function(){
+    var microsoftProvider = new OAuthProvider('microsoft.com');
+
+    async function attemptSignIn(provider){
       showGateError('');
       try {
         var result = await signInWithPopup(auth, provider);
@@ -831,6 +856,13 @@ if (!CONFIG_IS_PLACEHOLDER){
       } catch(e){
         showGateError('Sign-in failed: ' + (e && e.message ? e.message : e));
       }
+    }
+
+    document.getElementById('googleSignInBtn').addEventListener('click', function(){
+      attemptSignIn(googleProvider);
+    });
+    document.getElementById('microsoftSignInBtn').addEventListener('click', function(){
+      attemptSignIn(microsoftProvider);
     });
 
     onAuthStateChanged(auth, function(user){
