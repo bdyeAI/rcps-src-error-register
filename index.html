@@ -208,6 +208,23 @@
   }
   button.small { font-size: 12px; padding: 5px 10px; }
   .import-note { font-size: 12.5px; color: var(--ink-soft); }
+  .danger-zone {
+    border: 1px solid var(--fatal);
+    background: var(--fatal-bg);
+    border-radius: 4px;
+    padding: 14px 16px;
+  }
+  .danger-zone p {
+    font-size: 13px;
+    color: var(--ink);
+    margin: 0 0 12px;
+    line-height: 1.5;
+  }
+  .danger-btn {
+    background: var(--fatal);
+    border-color: var(--fatal);
+    color: #fff;
+  }
   .import-log {
     margin-top: 10px;
     font-family: 'IBM Plex Mono', monospace;
@@ -375,6 +392,24 @@
   .status-pill2.resolved { background: var(--resolved-bg); color: var(--resolved); }
   .status-pill2.reviewed { background: var(--action-bg); color: var(--action); }
   .row-detail { max-width: 62ch; }
+  .sti-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    margin-left: 8px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--paper);
+    color: var(--action);
+    cursor: pointer;
+    vertical-align: middle;
+  }
+  .sti-chip:hover { background: var(--action-bg); }
+  .sti-chip.copied { color: var(--resolved); border-color: var(--resolved); }
   .row-field { color: var(--ink-soft); font-size: 11.5px; }
   .row-meta { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
   .check-cell { text-align: center; width: 60px; }
@@ -583,15 +618,16 @@
   </section>
 
   <section>
-    <h2 class="section-title">Grand totals</h2>
-    <div class="cards" id="cardsSlot"></div>
+    <h2 class="section-title">Start a new reporting period</h2>
+    <div class="danger-zone">
+      <p>When this submission window is completely finished, use this to clear every tracked error and start clean for the next collection (e.g. moving from Fall SRC to Spring ADM). <strong>This cannot be undone</strong> — notes, review status, and all rows across every school are deleted. The submission history log is not affected.</p>
+      <button class="danger-btn" id="resetAllBtn">Clear all errors &amp; start fresh</button>
+    </div>
   </section>
 
   <section>
-    <h2 class="section-title">Trend across submissions</h2>
-    <div class="trend-wrap" id="trendSlot">
-      <div class="trend-empty">No submissions logged yet — process an import to start the record.</div>
-    </div>
+    <h2 class="section-title">Grand totals</h2>
+    <div class="cards" id="cardsSlot"></div>
   </section>
 
   <section>
@@ -610,6 +646,11 @@
         <button data-val="all2">All</button>
       </div>
       <input type="search" id="searchBox" placeholder="Search field or detail…">
+      <select id="sortSelect">
+        <option value="field">Sort: group same errors together</option>
+        <option value="sti">Sort: group by Student Testing ID</option>
+        <option value="import">Sort: import order</option>
+      </select>
     </div>
     <div id="schoolsSlot"></div>
   </section>
@@ -641,7 +682,17 @@ const firebaseConfig = {
 // Restrict sign-in to your division's Google Workspace domain, e.g. "radford.k12.va.us".
 // Set to null to allow any Google account (not recommended for a shared internal tool).
 const ALLOWED_EMAIL_DOMAIN = "rcps.org";
+// Specific outside accounts to allow in addition to the domain above (lowercase, exact match).
+// e.g. ["jane.smith@gmail.com"] — leave empty [] if nobody outside the domain needs access.
+const EXTRA_ALLOWED_EMAILS = ["stparrish@k12.com"];
 /* ========================================================================= */
+
+function isEmailAllowed(email){
+  var e = (email || '').toLowerCase();
+  if (ALLOWED_EMAIL_DOMAIN && e.endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase())) return true;
+  if (EXTRA_ALLOWED_EMAILS.indexOf(e) !== -1) return true;
+  return false;
+}
 
 var CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey === "PASTE_YOUR_API_KEY";
 
@@ -728,12 +779,19 @@ if (!CONFIG_IS_PLACEHOLDER){
   function errorKey(row){
     return row.school.code + '__' + fnv1a(row.field + '|' + row.detail);
   }
+  function extractSTI(detail){
+    // The State Testing ID is always 10 digits; other ids in the same text
+    // (student number, division number, day counts) are shorter, so a bare
+    // 10-digit run is a reliable, format-agnostic marker for it.
+    var m = String(detail || '').match(/\b\d{10}\b/);
+    return m ? m[0] : null;
+  }
 
   // ---------- app state ----------
   var errorsById = new Map(); // id -> data
   var historyRuns = [];
 
-  var filters = { severity: 'all', status: 'active', search: '' };
+  var filters = { severity: 'all', status: 'active', search: '', sortBy: 'field' };
   var editingNotes = new Map();   // id -> in-progress note text, while a notes field has focus
   var noteTimers = new Map();     // id -> debounce timer for auto-save
   var pendingRerender = false;    // set when a snapshot arrives while a note field is focused
@@ -758,17 +816,17 @@ if (!CONFIG_IS_PLACEHOLDER){
       return;
     }
     var provider = new GoogleAuthProvider();
-    if (ALLOWED_EMAIL_DOMAIN){
+    if (ALLOWED_EMAIL_DOMAIN && EXTRA_ALLOWED_EMAILS.length === 0){
       provider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
     }
     document.getElementById('googleSignInBtn').addEventListener('click', async function(){
       showGateError('');
       try {
         var result = await signInWithPopup(auth, provider);
-        var email = (result.user.email || '').toLowerCase();
-        if (ALLOWED_EMAIL_DOMAIN && !email.endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase())){
+        var email = result.user.email || '';
+        if (!isEmailAllowed(email)){
           await signOut(auth);
-          showGateError('Please sign in with your @' + ALLOWED_EMAIL_DOMAIN + ' account.');
+          showGateError('This account isn\'t on the access list. Contact your administrator if you need access.');
         }
       } catch(e){
         showGateError('Sign-in failed: ' + (e && e.message ? e.message : e));
@@ -777,8 +835,7 @@ if (!CONFIG_IS_PLACEHOLDER){
 
     onAuthStateChanged(auth, function(user){
       if (user){
-        var email = (user.email || '').toLowerCase();
-        if (ALLOWED_EMAIL_DOMAIN && !email.endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase())){
+        if (!isEmailAllowed(user.email)){
           // signed in with a disallowed account — bounce them back to the gate
           signOut(auth);
           return;
@@ -823,7 +880,6 @@ if (!CONFIG_IS_PLACEHOLDER){
 
     onSnapshot(doc(fsdb, 'meta', 'history'), function(snap){
       historyRuns = (snap.exists() && snap.data().runs) || [];
-      renderTrend();
       renderLastImportNote();
     }, function(err){ /* non-fatal */ });
   }
@@ -955,6 +1011,40 @@ if (!CONFIG_IS_PLACEHOLDER){
     logImport('Removed ' + toDelete.length + ' old resolved rows.');
   }
 
+  async function resetAllErrors(){
+    var count = errorsById.size;
+    if (!count){
+      logImport('Nothing to clear — the register is already empty.');
+      return;
+    }
+    var typed = prompt(
+      'This will permanently delete all ' + count + ' tracked rows (every school, every status, all notes) ' +
+      'to start a fresh reporting period. This cannot be undone.\n\n' +
+      'Type RESET to confirm:'
+    );
+    if (typed !== 'RESET'){
+      logImport('Reset cancelled — nothing was deleted.');
+      return;
+    }
+    var btn = document.getElementById('resetAllBtn');
+    btn.disabled = true;
+    btn.textContent = 'Clearing…';
+    try {
+      var allKeys = Array.from(errorsById.keys());
+      var CHUNK = 15;
+      for (var i=0;i<allKeys.length;i+=CHUNK){
+        var chunk = allKeys.slice(i, i+CHUNK);
+        await Promise.all(chunk.map(function(k){ return deleteDoc(doc(fsdb, 'errors', k)); }));
+      }
+      logImport('Cleared ' + allKeys.length + ' rows. Ready for the next reporting period.');
+    } catch(e){
+      logImport('Reset failed partway through: ' + (e && e.message ? e.message : e));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Clear all errors & start fresh';
+    }
+  }
+
   // ---------- row actions ----------
   async function setStatus(key, status){
     var now = nowIso();
@@ -972,7 +1062,6 @@ if (!CONFIG_IS_PLACEHOLDER){
   // ---------- rendering ----------
   function render(){
     renderCards();
-    renderTrend();
     renderSchools();
     renderLastImportNote();
   }
@@ -996,58 +1085,6 @@ if (!CONFIG_IS_PLACEHOLDER){
     document.getElementById('cardsSlot').innerHTML =
       card('fatal', 'Fatal errors', { total: fatalTotal, toFix: t.fatalOpen+t.fatalReviewed, fixed: t.fatalResolved }) +
       card('warning', 'Warnings', { total: warningTotal, toFix: t.warningOpen+t.warningReviewed, fixed: t.warningResolved });
-  }
-
-  function renderTrend(){
-    var slot = document.getElementById('trendSlot');
-    if (!historyRuns.length){
-      slot.innerHTML = '<div class="trend-empty">No submissions logged yet — process an import to start the record.</div>';
-      return;
-    }
-    var runs = historyRuns.slice(-24); // cap visual density
-    var w = 1000, h = 200, padL = 34, padR = 14, padT = 14, padB = 26;
-    var maxVal = 1;
-    runs.forEach(function(r){
-      maxVal = Math.max(maxVal, (r.fatalOpen||0)+(r.fatalReviewed||0), (r.warningOpen||0)+(r.warningReviewed||0));
-    });
-    maxVal = Math.ceil(maxVal * 1.15) || 1;
-    var innerW = w - padL - padR, innerH = h - padT - padB;
-    function x(i){ return padL + (runs.length===1 ? innerW/2 : (i/(runs.length-1))*innerW); }
-    function y(v){ return padT + innerH - (v/maxVal)*innerH; }
-    function pathFor(getter){
-      return runs.map(function(r,i){ return (i===0?'M':'L') + x(i).toFixed(1) + ',' + y(getter(r)).toFixed(1); }).join(' ');
-    }
-    var fatalPath = pathFor(function(r){ return (r.fatalOpen||0)+(r.fatalReviewed||0); });
-    var warnPath = pathFor(function(r){ return (r.warningOpen||0)+(r.warningReviewed||0); });
-
-    var gridLines = '';
-    for (var g=0; g<=4; g++){
-      var gy = padT + (innerH*g/4);
-      var val = Math.round(maxVal - (maxVal*g/4));
-      gridLines += '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(w-padR)+'" y2="'+gy.toFixed(1)+'" stroke="var(--line-soft)" stroke-width="1"/>';
-      gridLines += '<text x="'+(padL-8)+'" y="'+(gy+3).toFixed(1)+'" font-size="10" fill="var(--ink-soft)" text-anchor="end" font-family="IBM Plex Mono, monospace">'+val+'</text>';
-    }
-    var labels = '';
-    runs.forEach(function(r,i){
-      if (runs.length > 10 && i % Math.ceil(runs.length/8) !== 0 && i !== runs.length-1) return;
-      labels += '<text x="'+x(i).toFixed(1)+'" y="'+(h-6)+'" font-size="10" fill="var(--ink-soft)" text-anchor="middle" font-family="IBM Plex Mono, monospace">'+fmtDateShort(r.ts)+'</text>';
-    });
-    var dots = runs.map(function(r,i){
-      return '<circle cx="'+x(i).toFixed(1)+'" cy="'+y((r.fatalOpen||0)+(r.fatalReviewed||0)).toFixed(1)+'" r="2.6" fill="var(--fatal)"/>' +
-             '<circle cx="'+x(i).toFixed(1)+'" cy="'+y((r.warningOpen||0)+(r.warningReviewed||0)).toFixed(1)+'" r="2.6" fill="var(--warning)"/>';
-    }).join('');
-
-    slot.innerHTML =
-      '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;display:block;">' +
-        gridLines +
-        '<path d="'+fatalPath+'" fill="none" stroke="var(--fatal)" stroke-width="2"/>' +
-        '<path d="'+warnPath+'" fill="none" stroke="var(--warning)" stroke-width="2"/>' +
-        dots + labels +
-      '</svg>' +
-      '<div class="legend">' +
-        '<span><span class="swatch" style="background:var(--fatal)"></span>Fatal — still to fix</span>' +
-        '<span><span class="swatch" style="background:var(--warning)"></span>Warning — still to fix</span>' +
-      '</div>';
   }
 
   function renderLastImportNote(){
@@ -1092,6 +1129,24 @@ if (!CONFIG_IS_PLACEHOLDER){
     }
     slot.innerHTML = groups.map(function(g){
       var visible = g.rows.filter(rowMatchesFilters);
+      visible.forEach(function(r){ r._sti = extractSTI(r.detail); });
+      if (filters.sortBy === 'field'){
+        visible.sort(function(a,b){
+          if (a.field !== b.field) return a.field.localeCompare(b.field);
+          return a.detail.localeCompare(b.detail);
+        });
+      } else if (filters.sortBy === 'sti'){
+        visible.sort(function(a,b){
+          if (a._sti && b._sti){
+            if (a._sti !== b._sti) return a._sti.localeCompare(b._sti);
+            return a.field.localeCompare(b.field);
+          }
+          if (a._sti && !b._sti) return -1;
+          if (!a._sti && b._sti) return 1;
+          return 0;
+        });
+      }
+      // 'import' mode: leave in the order groupBySchool produced (original import order)
       var fatalToFix = g.rows.filter(function(r){ return r.severity==='FATAL' && r.status!=='resolved'; }).length;
       var fatalFixed = g.rows.filter(function(r){ return r.severity==='FATAL' && r.status==='resolved'; }).length;
       var warnToFix = g.rows.filter(function(r){ return r.severity==='WARNING' && r.status!=='resolved'; }).length;
@@ -1112,12 +1167,14 @@ if (!CONFIG_IS_PLACEHOLDER){
           statusBadge = '<span class="status-pill2 reviewed">Reviewed</span>';
         }
         var noteVal = editingNotes.has(r.id) ? editingNotes.get(r.id) : (r.notes || '');
+        var stiChip = r._sti ?
+          ' <span class="sti-chip" data-copy-sti="' + r._sti + '" title="Copy Student Testing ID">' + r._sti + ' ⧉</span>' : '';
         return '<tr>' +
           '<td class="check-cell"><input type="checkbox" ' + (checkDisabled?'disabled':'') +
             (status==='reviewed'?'checked':'') + ' data-toggle="' + r.id + '" title="Mark reviewed"></td>' +
           '<td><span class="sev-pill ' + sevClass + '">' + r.severity + '</span></td>' +
           '<td class="row-detail"><div class="row-field">' + escapeHtml(r.field) + '</div>' +
-            escapeHtml(r.detail) +
+            escapeHtml(r.detail) + stiChip +
             '<div class="row-meta">' + statusBadge + '</div></td>' +
           '<td class="notes-cell"><textarea class="notes-input" data-notes="' + r.id + '" placeholder="Add a note for other staff…">' + escapeHtml(noteVal) + '</textarea></td>' +
         '</tr>';
@@ -1175,6 +1232,41 @@ if (!CONFIG_IS_PLACEHOLDER){
         if (pendingRerender){ pendingRerender = false; render(); }
       });
     });
+    slot.querySelectorAll('[data-copy-sti]').forEach(function(el){
+      el.addEventListener('click', function(){
+        var sti = el.getAttribute('data-copy-sti');
+        copyToClipboard(sti).then(function(ok){
+          if (ok){
+            var original = el.textContent;
+            el.classList.add('copied');
+            el.textContent = 'copied ✓';
+            setTimeout(function(){ el.classList.remove('copied'); el.textContent = original; }, 1100);
+          }
+        });
+      });
+    });
+  }
+
+  async function copyToClipboard(text){
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch(e){ /* fall through to legacy path */ }
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      return true;
+    } catch(e){
+      return false;
+    }
   }
 
   async function commitNote(id, value){
@@ -1190,8 +1282,12 @@ if (!CONFIG_IS_PLACEHOLDER){
   // ---------- wire up static controls ----------
   document.getElementById('importBtn').addEventListener('click', processImport);
   document.getElementById('cleanupBtn').addEventListener('click', cleanupResolved);
+  document.getElementById('resetAllBtn').addEventListener('click', resetAllErrors);
   document.getElementById('searchBox').addEventListener('input', function(e){
     filters.search = e.target.value; renderSchools();
+  });
+  document.getElementById('sortSelect').addEventListener('change', function(e){
+    filters.sortBy = e.target.value; renderSchools();
   });
   document.getElementById('sevSeg').addEventListener('click', function(e){
     var b = e.target.closest('button'); if(!b) return;
