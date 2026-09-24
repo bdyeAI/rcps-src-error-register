@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SRC Fall Error Register — Radford City Public Schools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F8F7F3;
+    --paper-raised: #FFFFFF;
+    --ink: #1E2A32;
+    --ink-soft: #64717A;
+    --line: #DCE1E3;
+    --line-soft: #EAEDEE;
+    --fatal: #C0392B;
+    --fatal-bg: #FBEAE7;
+    --warning: #B7791F;
+    --warning-bg: #FBF0DC;
+    --resolved: #1F8A5F;
+    --resolved-bg: #E3F5EC;
+    --action: #2C6E8C;
+    --action-bg: #E4EFF3;
+    --focus: #2C6E8C;
+    font-family: 'Public Sans', system-ui, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14181B;
+      --paper-raised: #1E2327;
+      --ink: #ECEEEF;
+      --ink-soft: #9AA6AC;
+      --line: #343C41;
+      --line-soft: #262D31;
+      --fatal: #F0776A;
+      --fatal-bg: #3A2420;
+      --warning: #E3B85C;
+      --warning-bg: #362C18;
+      --resolved: #6FD9A8;
+      --resolved-bg: #163326;
+      --action: #7FC2DE;
+      --action-bg: #1E313A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14181B;
+    --paper-raised: #1E2327;
+    --ink: #ECEEEF;
+    --ink-soft: #9AA6AC;
+    --line: #343C41;
+    --line-soft: #262D31;
+    --fatal: #F0776A;
+    --fatal-bg: #3A2420;
+    --warning: #E3B85C;
+    --warning-bg: #362C18;
+    --resolved: #6FD9A8;
+    --resolved-bg: #163326;
+    --action: #7FC2DE;
+    --action-bg: #1E313A;
+  }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .card, .import-panel, .trend-wrap, .school, details.howto, textarea, input, select, button.ghost {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  * { scrollbar-width: thin; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body { min-height: 100%; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 18px;
+    margin-bottom: 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .masthead h1 {
+    font-family: 'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: clamp(26px, 4vw, 36px);
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .masthead .sub {
+    color: var(--ink-soft);
+    font-size: 14px;
+    max-width: 60ch;
+  }
+  .masthead .status-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .masthead-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+  .theme-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .theme-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch-track {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--line);
+    position: relative;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease;
+  }
+  .switch-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--paper-raised);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    transition: transform 0.15s ease;
+  }
+  .theme-switch input:checked + .switch-track { background: var(--action); }
+  .theme-switch input:checked + .switch-track .switch-thumb { transform: translateX(16px); }
+  .theme-switch input:focus-visible + .switch-track { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  section { margin-bottom: 30px; }
+  h2.section-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 19px;
+    margin: 0 0 12px;
+    border-bottom: 1px solid var(--line-soft);
+    padding-bottom: 8px;
+  }
+
+  /* Import panel */
+  .import-panel {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px;
+  }
+  .import-panel textarea {
+    width: 100%;
+    min-height: 110px;
+    max-height: 260px;
+    resize: vertical;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--paper);
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+  .import-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: 'Public Sans', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 9px 16px;
+    border-radius: 3px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.88; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-weight: 500;
+  }
+  button.small { font-size: 12px; padding: 5px 10px; }
+  .import-note { font-size: 12.5px; color: var(--ink-soft); }
+  .import-log {
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    white-space: pre-wrap;
+  }
+
+  /* Summary cards */
+  .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 620px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 18px;
+    background: var(--paper-raised);
+  }
+  .card .kind {
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .dot.fatal { background: var(--fatal); }
+  .dot.warning { background: var(--warning); }
+  .card.fatal .kind { color: var(--fatal); }
+  .card.warning .kind { color: var(--warning); }
+  .card .figures { display: flex; gap: 22px; flex-wrap: wrap; }
+  .figure .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .figure .lbl { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .figure.resolved .num { color: var(--resolved); }
+
+  /* Trend */
+  .trend-wrap {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--paper-raised);
+    padding: 16px 18px;
+  }
+  .trend-empty { color: var(--ink-soft); font-size: 13.5px; }
+  .legend { display: flex; gap: 18px; font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 14px; height: 3px; display: inline-block; }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .filters select, .filters input[type=search] {
+    font-family: 'Public Sans', sans-serif;
+    font-size: 13px;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--paper-raised);
+    color: var(--ink);
+  }
+  .filters input[type=search] { min-width: 200px; flex: 1; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .seg button {
+    background: var(--paper-raised);
+    color: var(--ink-soft);
+    border: none;
+    border-radius: 0;
+    font-weight: 500;
+    padding: 7px 12px;
+    border-right: 1px solid var(--line);
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button.active { background: var(--ink); color: var(--paper); }
+
+  /* School blocks */
+  .school {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    background: var(--paper-raised);
+    overflow: hidden;
+  }
+  .school-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 13px 16px;
+    cursor: pointer;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .school-head .name {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .school-head .code {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .school-head .tally {
+    display: flex;
+    gap: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+  .tally .t-fatal { color: var(--fatal); }
+  .tally .t-warning { color: var(--warning); }
+  .tally .t-resolved { color: var(--resolved); }
+  .school-head .bar {
+    height: 5px;
+    width: 100%;
+    background: var(--line-soft);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .school-head .bar-fill { height: 100%; background: var(--resolved); }
+  .school-head .caret { color: var(--ink-soft); font-size: 12px; }
+  .school-body { border-top: 1px solid var(--line-soft); }
+  .school-body.collapsed { display: none; }
+
+  table.err-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.err-table th {
+    text-align: left;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  table.err-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  table.err-table tr:last-child td { border-bottom: none; }
+  .sev-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .sev-pill.fatal { background: var(--fatal-bg); color: var(--fatal); }
+  .sev-pill.warning { background: var(--warning-bg); color: var(--warning); }
+  .status-pill2 {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .status-pill2.resolved { background: var(--resolved-bg); color: var(--resolved); }
+  .status-pill2.reviewed { background: var(--action-bg); color: var(--action); }
+  .row-detail { max-width: 62ch; }
+  .row-field { color: var(--ink-soft); font-size: 11.5px; }
+  .row-meta { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
+  .check-cell { text-align: center; width: 60px; }
+  .check-cell input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--action); cursor: pointer; }
+  .notes-cell { width: 220px; min-width: 180px; }
+  .notes-input {
+    width: 100%;
+    min-height: 34px;
+    max-height: 140px;
+    resize: vertical;
+    font-family: 'Public Sans', sans-serif;
+    font-size: 12.5px;
+    line-height: 1.4;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--paper);
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+  .notes-input:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .notes-input::placeholder { color: var(--ink-soft); opacity: 0.7; }
+  .notes-saved-flash { color: var(--resolved); font-size: 10.5px; margin-left: 4px; }
+  .reopen-link {
+    font-size: 11px;
+    color: var(--action);
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    font-weight: 500;
+  }
+  .empty-row td { text-align: center; color: var(--ink-soft); padding: 22px; font-size: 13px; }
+
+  details.howto {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--paper-raised);
+    padding: 4px 16px;
+  }
+  details.howto summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 10px 0;
+    font-size: 14px;
+  }
+  details.howto .howto-body {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    padding-bottom: 14px;
+    line-height: 1.55;
+  }
+  details.howto .howto-body p { margin: 0 0 10px; }
+  details.howto .howto-body code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--paper);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .banner {
+    border: 1px solid var(--fatal);
+    background: var(--fatal-bg);
+    color: var(--fatal);
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  a { color: var(--action); }
+
+  /* Sign-in gate */
+  #signInGate {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .gate-card {
+    max-width: 380px;
+    width: 100%;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 28px 26px;
+    text-align: center;
+  }
+  .gate-card h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0 0 8px;
+  }
+  .gate-card p {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin: 0 0 20px;
+  }
+  #googleSignInBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--paper-raised);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-weight: 600;
+    padding: 10px 18px;
+  }
+  #googleSignInBtn:hover { background: var(--paper); }
+  .gate-error {
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--fatal);
+  }
+  .gate-setup-note {
+    margin-top: 16px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--line-soft);
+    padding-top: 12px;
+  }
+  .user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .user-chip button {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 9px;
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+  }
+
+  @media (max-width: 480px) {
+    table.err-table { font-size: 12px; }
+    .row-detail { max-width: 34ch; }
+  }
+</style>
+</head>
+<body>
+<div id="signInGate">
+  <div class="gate-card">
+    <h1>SRC Fall Error Register</h1>
+    <p>Sign in with your school division Google account to view and update the shared error register.</p>
+    <button id="googleSignInBtn">Sign in with Google</button>
+    <div class="gate-error" id="gateError"></div>
+    <div class="gate-setup-note" id="gateSetupNote"></div>
+  </div>
+</div>
+<div class="wrap" id="mainApp" style="display:none;">
+
+  <header class="masthead">
+    <div>
+      <h1>SRC Fall Error Register</h1>
+      <div class="sub">Radford City Public Schools — tracks Fatal errors and Warnings from each SSWS submission, by school, with a running record of what's open, reviewed, and resolved.</div>
+    </div>
+    <div class="masthead-right">
+      <div class="status-pill" id="syncStatus">connecting…</div>
+      <div class="user-chip" id="userChip" style="display:none;">
+        <span id="userChipName"></span>
+        <button id="signOutBtn">Sign out</button>
+      </div>
+      <label class="theme-switch">
+        <input type="checkbox" id="themeToggle">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span id="themeToggleLabel">Dark view</span>
+      </label>
+    </div>
+  </header>
+
+  <div id="bannerSlot"></div>
+
+  <section>
+    <details class="howto">
+      <summary>How this works</summary>
+      <div class="howto-body">
+        <p><strong>Paste a fresh SSWS error extract below any time you re-run the submission.</strong> The register reads the school headers (like <code>0010 BELLE HETH ELEM</code>) to sort every row to the right school, then compares it against what's already tracked here:</p>
+        <p>• A row that wasn't tracked before is added as <strong>Open</strong>.<br>
+        • A row that's still in the new extract keeps whatever status it already had.<br>
+        • A row that was tracked before but is missing from the new extract is marked <strong>Resolved</strong> automatically — VDOE no longer flags it, so it's confirmed fixed.</p>
+        <p>Check the box next to a row to mark it <strong>Reviewed</strong> (someone's looked at it / working on it) — this is a manual flag, separate from the automatic Resolved detection. Resolved rows can be reopened if one comes back or was marked by mistake.</p>
+        <p>Matching across submissions is based on the field name and the error detail text together. If the detail text itself changes between runs (for example, an absence-day count that keeps climbing), the row may show up as a new one rather than matching the old one — that's a limitation of matching on text, not a bug. The data here is shared and live: everyone with this page open sees the same register.</p>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2 class="section-title">Import a new extract</h2>
+    <div class="import-panel">
+      <textarea id="importText" placeholder="Paste the raw SSWS error report here (including the school header lines), then click Process import."></textarea>
+      <div class="import-row">
+        <button id="importBtn">Process import</button>
+        <button class="ghost small" id="cleanupBtn">Clean up old resolved rows</button>
+        <span class="import-note" id="lastImportNote"></span>
+      </div>
+      <div class="import-log" id="importLog"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Grand totals</h2>
+    <div class="cards" id="cardsSlot"></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Trend across submissions</h2>
+    <div class="trend-wrap" id="trendSlot">
+      <div class="trend-empty">No submissions logged yet — process an import to start the record.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">By school</h2>
+    <div class="filters">
+      <div class="seg" id="sevSeg">
+        <button data-val="all" class="active">All</button>
+        <button data-val="FATAL">Fatal</button>
+        <button data-val="WARNING">Warning</button>
+      </div>
+      <div class="seg" id="statSeg">
+        <button data-val="active" class="active">Not resolved</button>
+        <button data-val="open">Open only</button>
+        <button data-val="reviewed">Reviewed only</button>
+        <button data-val="resolved">Resolved only</button>
+        <button data-val="all2">All</button>
+      </div>
+      <input type="search" id="searchBox" placeholder="Search field or detail…">
+    </div>
+    <div id="schoolsSlot"></div>
+  </section>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+
+/* =========================================================================
+   SETUP — fill these in before deploying. See SETUP.md for full steps.
+   ========================================================================= */
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAL2Sf74pAv6N0D4g7NHfhzG7EjeXh0eRM",
+  authDomain: "rcps-src-error-register.firebaseapp.com",
+  projectId: "rcps-src-error-register",
+  storageBucket: "rcps-src-error-register.firebasestorage.app",
+  messagingSenderId: "1036097626007",
+  appId: "1:1036097626007:web:0bc0969959b0df35bf2ed2",
+  measurementId: "G-P5YWV0EFHF"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+// Restrict sign-in to your division's Google Workspace domain, e.g. "radford.k12.va.us".
+// Set to null to allow any Google account (not recommended for a shared internal tool).
+const ALLOWED_EMAIL_DOMAIN = "rcps.org";
+/* ========================================================================= */
+
+var CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey === "PASTE_YOUR_API_KEY";
+
+var fbApp = null, fsdb = null, auth = null, currentUser = null;
+if (!CONFIG_IS_PLACEHOLDER){
+  fbApp = initializeApp(firebaseConfig);
+  fsdb = getFirestore(fbApp);
+  auth = getAuth(fbApp);
+}
+
+(function(){
+  "use strict";
+
+  // ---------- utilities ----------
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function fnv1a(str){
+    var h = 0x811c9dc5;
+    for (var i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h>>>0).toString(16).padStart(8,'0');
+  }
+  function slug(s){
+    var out = String(s).toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+    return (out || 'SECTION').slice(0,40);
+  }
+  function nowIso(){ return new Date().toISOString(); }
+  function fmtDate(iso){
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) + ' ' +
+           d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+  }
+  function fmtDateShort(iso){
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '?';
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  }
+
+  // ---------- parsing ----------
+  function parseImport(text){
+    var lines = text.split(/\r?\n/);
+    var current = {code: 'DIV', name: 'Division'};
+    var rows = [];
+    for (var i=0;i<lines.length;i++){
+      var raw = lines[i];
+      var line = raw.replace(/[ \t]+$/,'');
+      if (!line.trim()) continue;
+      if (line.indexOf('\t') !== -1){
+        var parts = line.split('\t').map(function(p){return p.trim();});
+        while (parts.length && parts[parts.length-1] === '') parts.pop();
+        if (parts.length < 3) continue;
+        var severity = parts[parts.length-1].toUpperCase();
+        if (severity !== 'FATAL' && severity !== 'WARNING') {
+          // not clearly a data row (or an unexpected severity token) — keep it, bucketed as OTHER
+          severity = severity || 'OTHER';
+        }
+        var field = parts[0];
+        var detail = parts.slice(1, parts.length-1).join(' ').replace(/\s+/g,' ').trim();
+        if (!field && !detail) continue;
+        rows.push({ school: current, field: field, detail: detail, severity: severity });
+      } else {
+        var m = line.match(/^(\d{3,4})\s+(.+)$/);
+        if (m){
+          current = { code: m[1], name: m[2].trim() };
+        } else {
+          var m2 = line.match(/^(.+?)\s+Level Errors$/i);
+          if (m2){
+            current = { code: slug(m2[1]), name: m2[1].trim() };
+          } else {
+            current = { code: slug(line), name: line.trim() };
+          }
+        }
+      }
+    }
+    return rows;
+  }
+  function errorKey(row){
+    return row.school.code + '__' + fnv1a(row.field + '|' + row.detail);
+  }
+
+  // ---------- app state ----------
+  var errorsById = new Map(); // id -> data
+  var historyRuns = [];
+
+  var filters = { severity: 'all', status: 'active', search: '' };
+  var editingNotes = new Map();   // id -> in-progress note text, while a notes field has focus
+  var noteTimers = new Map();     // id -> debounce timer for auto-save
+  var pendingRerender = false;    // set when a snapshot arrives while a note field is focused
+
+  function setSyncStatus(text){
+    document.getElementById('syncStatus').textContent = text;
+  }
+  function showBanner(msg){
+    document.getElementById('bannerSlot').innerHTML =
+      '<div class="banner">' + escapeHtml(msg) + '</div>';
+  }
+
+  function showGateError(msg){
+    document.getElementById('gateError').textContent = msg || '';
+  }
+
+  async function startAuth(){
+    if (CONFIG_IS_PLACEHOLDER){
+      document.getElementById('gateSetupNote').textContent =
+        'This page hasn\'t been configured yet — paste your Firebase project settings into the firebaseConfig block near the top of the <script> tag (see SETUP.md), then reload.';
+      document.getElementById('googleSignInBtn').disabled = true;
+      return;
+    }
+    var provider = new GoogleAuthProvider();
+    if (ALLOWED_EMAIL_DOMAIN){
+      provider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
+    }
+    document.getElementById('googleSignInBtn').addEventListener('click', async function(){
+      showGateError('');
+      try {
+        var result = await signInWithPopup(auth, provider);
+        var email = (result.user.email || '').toLowerCase();
+        if (ALLOWED_EMAIL_DOMAIN && !email.endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase())){
+          await signOut(auth);
+          showGateError('Please sign in with your @' + ALLOWED_EMAIL_DOMAIN + ' account.');
+        }
+      } catch(e){
+        showGateError('Sign-in failed: ' + (e && e.message ? e.message : e));
+      }
+    });
+
+    onAuthStateChanged(auth, function(user){
+      if (user){
+        var email = (user.email || '').toLowerCase();
+        if (ALLOWED_EMAIL_DOMAIN && !email.endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase())){
+          // signed in with a disallowed account — bounce them back to the gate
+          signOut(auth);
+          return;
+        }
+        currentUser = user;
+        document.getElementById('signInGate').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        document.getElementById('userChip').style.display = 'flex';
+        document.getElementById('userChipName').textContent = user.displayName || user.email || 'Signed in';
+        document.getElementById('signOutBtn').addEventListener('click', function(){ signOut(auth); });
+        boot();
+      } else {
+        currentUser = null;
+        document.getElementById('signInGate').style.display = 'flex';
+        document.getElementById('mainApp').style.display = 'none';
+      }
+    });
+  }
+
+  function myId(){ return currentUser ? currentUser.uid : null; }
+
+  function boot(){
+    setSyncStatus('syncing…');
+
+    onSnapshot(collection(fsdb, 'errors'), function(snap){
+      errorsById = new Map();
+      snap.docs.forEach(function(d){ errorsById.set(d.id, d.data()); });
+      setSyncStatus('live — ' + errorsById.size + ' tracked');
+      var active = document.activeElement;
+      if (active && active.classList && active.classList.contains('notes-input')){
+        // don't rebuild the table out from under someone mid-note — the cards/trend
+        // above are still safe to refresh, just not the school tables.
+        renderCards();
+        pendingRerender = true;
+        return;
+      }
+      render();
+    }, function(err){
+      setSyncStatus('sync error');
+      showBanner('Lost the live connection to the shared register (' + err.code + '). Reload the page to reconnect.');
+    });
+
+    onSnapshot(doc(fsdb, 'meta', 'history'), function(snap){
+      historyRuns = (snap.exists() && snap.data().runs) || [];
+      renderTrend();
+      renderLastImportNote();
+    }, function(err){ /* non-fatal */ });
+  }
+
+  // ---------- import / diff ----------
+  async function processImport(){
+    var text = document.getElementById('importText').value;
+    if (!text.trim()){
+      logImport('Paste an extract first.');
+      return;
+    }
+    var btn = document.getElementById('importBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    try {
+      var rows = parseImport(text);
+      if (!rows.length){
+        logImport('Nothing recognizable in that paste — check it still has the school header lines and tab-separated columns.');
+        return;
+      }
+      var parsedMap = new Map();
+      rows.forEach(function(r){
+        var key = errorKey(r);
+        if (!parsedMap.has(key)) parsedMap.set(key, r);
+      });
+
+      var now = nowIso();
+      var newCount=0, reopenedCount=0, unchangedCount=0, resolvedCount=0;
+
+      var errorsCol = collection(fsdb, 'errors');
+      var freshSnap = await getDocs(errorsCol);
+      var existing = new Map();
+      freshSnap.docs.forEach(function(d){ existing.set(d.id, d.data()); });
+
+      var writes = [];
+      parsedMap.forEach(function(row, key){
+        var prev = existing.get(key);
+        if (!prev){
+          writes.push({op:'set', key: key, data: {
+            school: row.school.code, schoolName: row.school.name,
+            field: row.field, detail: row.detail, severity: row.severity,
+            status: 'open', firstSeen: now, lastSeen: now
+          }});
+          newCount++;
+        } else {
+          var patch = { lastSeen: now, detail: row.detail, severity: row.severity, schoolName: row.school.name };
+          if (prev.status === 'resolved'){ patch.status = 'open'; patch.resolvedAt = null; reopenedCount++; }
+          else unchangedCount++;
+          writes.push({op:'update', key: key, data: patch});
+        }
+      });
+      existing.forEach(function(prev, key){
+        if (!parsedMap.has(key) && prev.status !== 'resolved'){
+          writes.push({op:'update', key:key, data:{status:'resolved', resolvedAt: now}});
+          resolvedCount++;
+        }
+      });
+
+      var CHUNK = 15;
+      for (var i=0;i<writes.length;i+=CHUNK){
+        var chunk = writes.slice(i, i+CHUNK);
+        await Promise.all(chunk.map(function(w){
+          var ref = doc(fsdb, 'errors', w.key);
+          return w.op === 'set' ? setDoc(ref, w.data) : updateDoc(ref, w.data);
+        }));
+      }
+
+      // recompute totals from the merged state for the history snapshot
+      var merged = new Map(existing);
+      writes.forEach(function(w){
+        var base = merged.get(w.key) || {};
+        merged.set(w.key, Object.assign({}, base, w.data));
+      });
+      var totals = computeTotals(merged);
+      var histRef = doc(fsdb, 'meta', 'history');
+      var histSnap = await getDoc(histRef);
+      var runs = (histSnap.exists() && histSnap.data().runs) || [];
+      runs.push(Object.assign({ ts: now, importedBy: myId(), importedByEmail: currentUser ? currentUser.email : null }, totals));
+      if (runs.length > 200) runs = runs.slice(runs.length-200);
+      await setDoc(histRef, { runs: runs });
+
+      logImport(newCount + ' new · ' + reopenedCount + ' reopened (reappeared) · ' +
+                unchangedCount + ' unchanged · ' + resolvedCount + ' newly resolved.');
+      document.getElementById('importText').value = '';
+    } catch(e){
+      logImport('Import failed: ' + (e && e.message ? e.message : e));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Process import';
+    }
+  }
+
+  function computeTotals(map){
+    var t = { fatalOpen:0, fatalReviewed:0, fatalResolved:0, warningOpen:0, warningReviewed:0, warningResolved:0 };
+    map.forEach(function(d){
+      var sev = d.severity === 'WARNING' ? 'warning' : 'fatal';
+      var st = d.status || 'open';
+      if (st === 'resolved') t[sev+'Resolved']++;
+      else if (st === 'reviewed') t[sev+'Reviewed']++;
+      else t[sev+'Open']++;
+    });
+    return t;
+  }
+
+  function logImport(msg){
+    var el = document.getElementById('importLog');
+    var ts = new Date().toLocaleTimeString();
+    el.textContent = '[' + ts + '] ' + msg;
+  }
+
+  async function cleanupResolved(){
+    var cutoffMs = Date.now() - 60*24*3600*1000;
+    var toDelete = [];
+    errorsById.forEach(function(d, key){
+      if (d.status === 'resolved' && d.resolvedAt && new Date(d.resolvedAt).getTime() < cutoffMs){
+        toDelete.push(key);
+      }
+    });
+    if (!toDelete.length){
+      logImport('No resolved rows older than 60 days to clean up.');
+      return;
+    }
+    if (!confirm('Remove ' + toDelete.length + ' resolved rows older than 60 days? This only tidies the register — it does not affect the trend history log.')) return;
+    var CHUNK = 15;
+    for (var i=0;i<toDelete.length;i+=CHUNK){
+      var chunk = toDelete.slice(i, i+CHUNK);
+      await Promise.all(chunk.map(function(k){ return deleteDoc(doc(fsdb, 'errors', k)); }));
+    }
+    logImport('Removed ' + toDelete.length + ' old resolved rows.');
+  }
+
+  // ---------- row actions ----------
+  async function setStatus(key, status){
+    var now = nowIso();
+    var patch = { status: status };
+    if (status === 'reviewed'){ patch.reviewedAt = now; patch.reviewedBy = myId(); }
+    if (status === 'open'){ patch.reviewedAt = null; }
+    if (status === 'open' && errorsById.get(key) && errorsById.get(key).status === 'resolved'){ patch.resolvedAt = null; }
+    try {
+      await updateDoc(doc(fsdb, 'errors', key), patch);
+    } catch(e){
+      showBanner('Could not update that row (' + (e && e.code ? e.code : 'error') + '). It may need a page reload.');
+    }
+  }
+
+  // ---------- rendering ----------
+  function render(){
+    renderCards();
+    renderTrend();
+    renderSchools();
+    renderLastImportNote();
+  }
+
+  function renderCards(){
+    var t = computeTotals(errorsById);
+    var fatalTotal = t.fatalOpen+t.fatalReviewed+t.fatalResolved;
+    var warningTotal = t.warningOpen+t.warningReviewed+t.warningResolved;
+    function card(kind, label, o){
+      return '<div class="card ' + kind + '">' +
+        '<div class="kind"><span class="dot ' + kind + '"></span>' + label + '</div>' +
+        '<div class="figures">' +
+          figure(o.total, 'Total tracked') +
+          figure(o.toFix, 'Still to fix') +
+          figure(o.fixed, 'Fixed', true) +
+        '</div></div>';
+    }
+    function figure(n, lbl, resolved){
+      return '<div class="figure' + (resolved?' resolved':'') + '"><div class="num">' + n + '</div><div class="lbl">' + lbl + '</div></div>';
+    }
+    document.getElementById('cardsSlot').innerHTML =
+      card('fatal', 'Fatal errors', { total: fatalTotal, toFix: t.fatalOpen+t.fatalReviewed, fixed: t.fatalResolved }) +
+      card('warning', 'Warnings', { total: warningTotal, toFix: t.warningOpen+t.warningReviewed, fixed: t.warningResolved });
+  }
+
+  function renderTrend(){
+    var slot = document.getElementById('trendSlot');
+    if (!historyRuns.length){
+      slot.innerHTML = '<div class="trend-empty">No submissions logged yet — process an import to start the record.</div>';
+      return;
+    }
+    var runs = historyRuns.slice(-24); // cap visual density
+    var w = 1000, h = 200, padL = 34, padR = 14, padT = 14, padB = 26;
+    var maxVal = 1;
+    runs.forEach(function(r){
+      maxVal = Math.max(maxVal, (r.fatalOpen||0)+(r.fatalReviewed||0), (r.warningOpen||0)+(r.warningReviewed||0));
+    });
+    maxVal = Math.ceil(maxVal * 1.15) || 1;
+    var innerW = w - padL - padR, innerH = h - padT - padB;
+    function x(i){ return padL + (runs.length===1 ? innerW/2 : (i/(runs.length-1))*innerW); }
+    function y(v){ return padT + innerH - (v/maxVal)*innerH; }
+    function pathFor(getter){
+      return runs.map(function(r,i){ return (i===0?'M':'L') + x(i).toFixed(1) + ',' + y(getter(r)).toFixed(1); }).join(' ');
+    }
+    var fatalPath = pathFor(function(r){ return (r.fatalOpen||0)+(r.fatalReviewed||0); });
+    var warnPath = pathFor(function(r){ return (r.warningOpen||0)+(r.warningReviewed||0); });
+
+    var gridLines = '';
+    for (var g=0; g<=4; g++){
+      var gy = padT + (innerH*g/4);
+      var val = Math.round(maxVal - (maxVal*g/4));
+      gridLines += '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(w-padR)+'" y2="'+gy.toFixed(1)+'" stroke="var(--line-soft)" stroke-width="1"/>';
+      gridLines += '<text x="'+(padL-8)+'" y="'+(gy+3).toFixed(1)+'" font-size="10" fill="var(--ink-soft)" text-anchor="end" font-family="IBM Plex Mono, monospace">'+val+'</text>';
+    }
+    var labels = '';
+    runs.forEach(function(r,i){
+      if (runs.length > 10 && i % Math.ceil(runs.length/8) !== 0 && i !== runs.length-1) return;
+      labels += '<text x="'+x(i).toFixed(1)+'" y="'+(h-6)+'" font-size="10" fill="var(--ink-soft)" text-anchor="middle" font-family="IBM Plex Mono, monospace">'+fmtDateShort(r.ts)+'</text>';
+    });
+    var dots = runs.map(function(r,i){
+      return '<circle cx="'+x(i).toFixed(1)+'" cy="'+y((r.fatalOpen||0)+(r.fatalReviewed||0)).toFixed(1)+'" r="2.6" fill="var(--fatal)"/>' +
+             '<circle cx="'+x(i).toFixed(1)+'" cy="'+y((r.warningOpen||0)+(r.warningReviewed||0)).toFixed(1)+'" r="2.6" fill="var(--warning)"/>';
+    }).join('');
+
+    slot.innerHTML =
+      '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;display:block;">' +
+        gridLines +
+        '<path d="'+fatalPath+'" fill="none" stroke="var(--fatal)" stroke-width="2"/>' +
+        '<path d="'+warnPath+'" fill="none" stroke="var(--warning)" stroke-width="2"/>' +
+        dots + labels +
+      '</svg>' +
+      '<div class="legend">' +
+        '<span><span class="swatch" style="background:var(--fatal)"></span>Fatal — still to fix</span>' +
+        '<span><span class="swatch" style="background:var(--warning)"></span>Warning — still to fix</span>' +
+      '</div>';
+  }
+
+  function renderLastImportNote(){
+    var el = document.getElementById('lastImportNote');
+    if (!historyRuns.length){ el.textContent = 'No imports logged yet.'; return; }
+    var last = historyRuns[historyRuns.length-1];
+    el.textContent = 'Last import: ' + fmtDate(last.ts) + (historyRuns.length>1 ? ' · ' + historyRuns.length + ' submissions logged' : '');
+  }
+
+  function groupBySchool(){
+    var groups = new Map();
+    errorsById.forEach(function(d, key){
+      var code = d.school || 'DIV';
+      if (!groups.has(code)) groups.set(code, { code: code, name: d.schoolName || code, rows: [] });
+      groups.get(code).rows.push(Object.assign({ id: key }, d));
+    });
+    return Array.from(groups.values()).sort(function(a,b){ return a.name.localeCompare(b.name); });
+  }
+
+  function rowMatchesFilters(d){
+    if (filters.severity !== 'all' && d.severity !== filters.severity) return false;
+    var st = d.status || 'open';
+    if (filters.status === 'active' && st === 'resolved') return false;
+    if (filters.status === 'open' && st !== 'open') return false;
+    if (filters.status === 'reviewed' && st !== 'reviewed') return false;
+    if (filters.status === 'resolved' && st !== 'resolved') return false;
+    if (filters.search){
+      var hay = (d.field + ' ' + d.detail).toLowerCase();
+      if (hay.indexOf(filters.search.toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+
+  var collapsedState = new Map();
+
+  function renderSchools(){
+    var groups = groupBySchool();
+    var slot = document.getElementById('schoolsSlot');
+    if (!groups.length){
+      slot.innerHTML = '<div class="import-note">Nothing tracked yet — paste an extract above to get started.</div>';
+      return;
+    }
+    slot.innerHTML = groups.map(function(g){
+      var visible = g.rows.filter(rowMatchesFilters);
+      var fatalToFix = g.rows.filter(function(r){ return r.severity==='FATAL' && r.status!=='resolved'; }).length;
+      var fatalFixed = g.rows.filter(function(r){ return r.severity==='FATAL' && r.status==='resolved'; }).length;
+      var warnToFix = g.rows.filter(function(r){ return r.severity==='WARNING' && r.status!=='resolved'; }).length;
+      var warnFixed = g.rows.filter(function(r){ return r.severity==='WARNING' && r.status==='resolved'; }).length;
+      var totalAll = g.rows.length, totalFixed = fatalFixed+warnFixed;
+      var pct = totalAll ? Math.round(100*totalFixed/totalAll) : 0;
+      var collapsed = collapsedState.has(g.code) ? collapsedState.get(g.code) : true;
+
+      var rowsHtml = visible.length ? visible.map(function(r){
+        var sevClass = r.severity === 'WARNING' ? 'warning' : 'fatal';
+        var status = r.status || 'open';
+        var checkDisabled = status === 'resolved';
+        var statusBadge = '';
+        if (status === 'resolved'){
+          statusBadge = '<span class="status-pill2 resolved">Resolved ' + fmtDateShort(r.resolvedAt) + '</span> ' +
+            '<button class="reopen-link" data-reopen="'+r.id+'">reopen</button>';
+        } else if (status === 'reviewed'){
+          statusBadge = '<span class="status-pill2 reviewed">Reviewed</span>';
+        }
+        var noteVal = editingNotes.has(r.id) ? editingNotes.get(r.id) : (r.notes || '');
+        return '<tr>' +
+          '<td class="check-cell"><input type="checkbox" ' + (checkDisabled?'disabled':'') +
+            (status==='reviewed'?'checked':'') + ' data-toggle="' + r.id + '" title="Mark reviewed"></td>' +
+          '<td><span class="sev-pill ' + sevClass + '">' + r.severity + '</span></td>' +
+          '<td class="row-detail"><div class="row-field">' + escapeHtml(r.field) + '</div>' +
+            escapeHtml(r.detail) +
+            '<div class="row-meta">' + statusBadge + '</div></td>' +
+          '<td class="notes-cell"><textarea class="notes-input" data-notes="' + r.id + '" placeholder="Add a note for other staff…">' + escapeHtml(noteVal) + '</textarea></td>' +
+        '</tr>';
+      }).join('') : '<tr class="empty-row"><td colspan="4">No rows match the current filters.</td></tr>';
+
+      return '<div class="school" data-code="' + g.code + '">' +
+        '<div class="school-head" data-toggle-school="' + g.code + '">' +
+          '<div><span class="name">' + escapeHtml(g.name) + '</span> <span class="code">' + escapeHtml(g.code) + '</span>' +
+            '<div class="bar" style="max-width:260px;"><div class="bar-fill" style="width:' + pct + '%;"></div></div></div>' +
+          '<div class="tally">' +
+            '<span class="t-fatal">' + fatalToFix + ' fatal</span>' +
+            '<span class="t-warning">' + warnToFix + ' warn</span>' +
+            '<span class="t-resolved">' + totalFixed + ' fixed</span>' +
+            '<span class="caret">' + (collapsed?'▸':'▾') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="school-body' + (collapsed?' collapsed':'') + '">' +
+          '<table class="err-table"><thead><tr><th>Reviewed</th><th>Severity</th><th>Field / detail</th><th>Notes</th></tr></thead>' +
+          '<tbody>' + rowsHtml + '</tbody></table>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    // wire events
+    slot.querySelectorAll('[data-toggle-school]').forEach(function(el){
+      el.addEventListener('click', function(){
+        var code = el.getAttribute('data-toggle-school');
+        var cur = collapsedState.has(code) ? collapsedState.get(code) : true;
+        collapsedState.set(code, !cur);
+        renderSchools();
+      });
+    });
+    slot.querySelectorAll('[data-toggle]').forEach(function(el){
+      el.addEventListener('change', function(){
+        var key = el.getAttribute('data-toggle');
+        setStatus(key, el.checked ? 'reviewed' : 'open');
+      });
+    });
+    slot.querySelectorAll('[data-reopen]').forEach(function(el){
+      el.addEventListener('click', function(){
+        setStatus(el.getAttribute('data-reopen'), 'open');
+      });
+    });
+    slot.querySelectorAll('[data-notes]').forEach(function(el){
+      var id = el.getAttribute('data-notes');
+      el.addEventListener('input', function(){
+        editingNotes.set(id, el.value);
+        if (noteTimers.has(id)) clearTimeout(noteTimers.get(id));
+        noteTimers.set(id, setTimeout(function(){ commitNote(id, el.value); }, 900));
+      });
+      el.addEventListener('blur', function(){
+        if (noteTimers.has(id)){ clearTimeout(noteTimers.get(id)); noteTimers.delete(id); }
+        commitNote(id, el.value);
+        editingNotes.delete(id);
+        if (pendingRerender){ pendingRerender = false; render(); }
+      });
+    });
+  }
+
+  async function commitNote(id, value){
+    try {
+      await updateDoc(doc(fsdb, 'errors', id), { notes: value });
+    } catch(e){
+      // a rare rejection here (e.g. read-only viewer) shouldn't interrupt typing —
+      // surface it quietly rather than yanking focus with a banner.
+      console.warn('Could not save note:', e && e.code);
+    }
+  }
+
+  // ---------- wire up static controls ----------
+  document.getElementById('importBtn').addEventListener('click', processImport);
+  document.getElementById('cleanupBtn').addEventListener('click', cleanupResolved);
+  document.getElementById('searchBox').addEventListener('input', function(e){
+    filters.search = e.target.value; renderSchools();
+  });
+  document.getElementById('sevSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#sevSeg button').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active'); filters.severity = b.getAttribute('data-val'); renderSchools();
+  });
+  document.getElementById('statSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#statSeg button').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    var v = b.getAttribute('data-val');
+    filters.status = v === 'all2' ? 'all' : v;
+    renderSchools();
+  });
+
+  function applyTheme(isDark){
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    var label = document.getElementById('themeToggleLabel');
+    if (label) label.textContent = isDark ? 'Dark view' : 'Light view';
+  }
+  function initTheme(){
+    var saved = null;
+    try { saved = localStorage.getItem('src-register-theme'); } catch(e){ saved = null; }
+    var isDark = (saved === 'dark') ? true
+               : (saved === 'light') ? false
+               : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    applyTheme(isDark);
+    var toggle = document.getElementById('themeToggle');
+    toggle.checked = isDark;
+    toggle.addEventListener('change', function(){
+      applyTheme(toggle.checked);
+      try { localStorage.setItem('src-register-theme', toggle.checked ? 'dark' : 'light'); } catch(e){}
+    });
+  }
+
+  initTheme();
+  startAuth();
+})();
+</script>
+</body>
+</html>
