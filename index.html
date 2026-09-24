@@ -762,7 +762,7 @@ if (!CONFIG_IS_PLACEHOLDER){
   // ---------- parsing ----------
   function parseImport(text){
     var lines = text.split(/\r?\n/);
-    var current = {code: 'DIV', name: 'Division'};
+    var current = {code: 'DIVISION', name: 'Division'};
     var rows = [];
     for (var i=0;i<lines.length;i++){
       var raw = lines[i];
