@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SRC Fall Error Register — Radford City Public Schools</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -95,6 +96,12 @@
     font-size: clamp(26px, 4vw, 36px);
     margin: 0 0 4px;
     letter-spacing: -0.01em;
+  }
+  .header-logo {
+    display: block;
+    height: clamp(56px, 7vw, 80px);
+    width: auto;
+    margin-bottom: 6px;
   }
   .masthead .sub {
     color: var(--ink-soft);
@@ -410,6 +417,19 @@
   }
   .sti-chip:hover { background: var(--action-bg); }
   .sti-chip.copied { color: var(--resolved); border-color: var(--resolved); }
+  .select-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--paper-raised);
+    font-size: 13px;
+  }
+  .select-toolbar #selectCount { font-weight: 600; color: var(--ink-soft); min-width: 80px; }
   .row-field { color: var(--ink-soft); font-size: 11.5px; }
   .row-meta { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
   .check-cell { text-align: center; width: 60px; }
@@ -592,7 +612,7 @@
 
   <header class="masthead">
     <div>
-      <h1>SRC Fall Error Register</h1>
+      <img src="logo.svg" alt="SRC Fall Error Register — Radford City Public Schools, Commonwealth of Virginia" class="header-logo">
       <div class="sub">Radford City Public Schools — tracks Fatal errors and Warnings from each SSWS submission, by school, with a running record of what's open, reviewed, and resolved.</div>
     </div>
     <div class="masthead-right">
@@ -639,6 +659,19 @@
   </section>
 
   <section>
+    <h2 class="section-title">Backup</h2>
+    <div class="import-panel">
+      <p class="import-note" style="margin-bottom:10px;">Download everything — every error row, note, and status, plus the full history log — as one file. Keep a recent copy somewhere outside Firestore; there's no undo for a manual delete in the Firebase console.</p>
+      <div class="import-row">
+        <button class="ghost small" id="exportBtn">Export backup (JSON)</button>
+        <input type="file" id="restoreFile" accept=".json" style="display:none;">
+        <button class="ghost small" id="restoreBtn">Restore from backup…</button>
+        <span class="import-note" id="backupNote"></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <h2 class="section-title">Start a new reporting period</h2>
     <div class="danger-zone">
       <p>When this submission window is completely finished, use this to clear every tracked error and start clean for the next collection (e.g. moving from Fall SRC to Spring ADM). <strong>This cannot be undone</strong> — notes, review status, and all rows across every school are deleted. The submission history log is not affected.</p>
@@ -653,6 +686,13 @@
 
   <section>
     <h2 class="section-title">By school</h2>
+    <div class="select-toolbar">
+      <span id="selectCount">0 selected</span>
+      <button class="ghost small" id="copyStisBtn" disabled>Copy selected STIs</button>
+      <button class="ghost small" id="copyStudentIdsBtn" disabled>Copy selected Student IDs</button>
+      <button class="ghost small" id="clearSelectionBtn" disabled>Clear selection</button>
+      <span class="import-note" id="selectNote"></span>
+    </div>
     <div class="filters">
       <div class="seg" id="sevSeg">
         <button data-val="all" class="active">All</button>
@@ -800,12 +840,18 @@ if (!CONFIG_IS_PLACEHOLDER){
   function errorKey(row){
     return row.school.code + '__' + fnv1a(row.field + '|' + row.detail);
   }
-  function extractSTI(detail){
-    // The State Testing ID is always 10 digits; other ids in the same text
-    // (student number, division number, day counts) are shorter, so a bare
-    // 10-digit run is a reliable, format-agnostic marker for it.
-    var m = String(detail || '').match(/\b\d{10}\b/);
-    return m ? m[0] : null;
+  function extractIds(detail){
+    // The usual pattern is "(studentId/sti)" — the STI is always 10 digits,
+    // the student number in front of it is shorter. When both appear together
+    // like that, the slash ties them to each other reliably. When only a bare
+    // 10-digit number appears with nothing in front of it, there's no student
+    // number paired with it in this row (matches cases where the extract
+    // itself shows the STI alone, e.g. "A State Testing Id is required...").
+    var text = String(detail || '');
+    var pair = text.match(/\b(\d+)\/(\d{10})\b/);
+    if (pair) return { studentId: pair[1], sti: pair[2] };
+    var bare = text.match(/\b\d{10}\b/);
+    return { studentId: null, sti: bare ? bare[0] : null };
   }
 
   // ---------- app state ----------
@@ -813,6 +859,7 @@ if (!CONFIG_IS_PLACEHOLDER){
   var historyRuns = [];
 
   var filters = { severity: 'all', status: 'active', search: '', sortBy: 'field' };
+  var selectedIds = new Set();    // ids currently checked for bulk-copy, independent of Reviewed status
   var editingNotes = new Map();   // id -> in-progress note text, while a notes field has focus
   var noteTimers = new Map();     // id -> debounce timer for auto-save
   var pendingRerender = false;    // set when a snapshot arrives while a note field is focused
@@ -1043,6 +1090,90 @@ if (!CONFIG_IS_PLACEHOLDER){
     logImport('Removed ' + toDelete.length + ' old resolved rows.');
   }
 
+  function setBackupNote(msg){
+    document.getElementById('backupNote').textContent = msg;
+  }
+
+  async function exportBackup(){
+    setBackupNote('Preparing export…');
+    try {
+      var errorsSnap = await getDocs(collection(fsdb, 'errors'));
+      var errorsArr = errorsSnap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+      var histSnap = await getDoc(doc(fsdb, 'meta', 'history'));
+      var historyArr = (histSnap.exists() && histSnap.data().runs) || [];
+
+      var payload = {
+        exportedAt: nowIso(),
+        exportedBy: currentUser ? currentUser.email : null,
+        errors: errorsArr,
+        history: historyArr
+      };
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      var stamp = new Date().toISOString().slice(0,10);
+      a.href = url;
+      a.download = 'src-error-register-backup-' + stamp + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setBackupNote('Exported ' + errorsArr.length + ' rows and ' + historyArr.length + ' history entries.');
+    } catch(e){
+      setBackupNote('Export failed: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  async function restoreFromFile(file){
+    if (!file) return;
+    setBackupNote('Reading file…');
+    try {
+      var text = await file.text();
+      var payload = JSON.parse(text);
+      if (!payload || !Array.isArray(payload.errors)){
+        setBackupNote('That file doesn\'t look like a backup from this app (no "errors" array found).');
+        return;
+      }
+      if (!confirm(
+        'Restore ' + payload.errors.length + ' rows from this backup (from ' + (payload.exportedAt || 'unknown time') + ')?\n\n' +
+        'This adds/overwrites rows by their original ID — anything currently tracked that is NOT in this backup will be left as-is, not deleted. ' +
+        'If you want a truly clean restore, use "Clear all errors" first, then restore.'
+      )) {
+        setBackupNote('Restore cancelled.');
+        return;
+      }
+      setBackupNote('Restoring…');
+      var CHUNK = 15;
+      for (var i=0;i<payload.errors.length;i+=CHUNK){
+        var chunk = payload.errors.slice(i, i+CHUNK);
+        await Promise.all(chunk.map(function(row){
+          var id = row.id;
+          var data = Object.assign({}, row);
+          delete data.id;
+          return setDoc(doc(fsdb, 'errors', id), data);
+        }));
+      }
+      if (Array.isArray(payload.history) && payload.history.length){
+        await setDoc(doc(fsdb, 'meta', 'history'), { runs: payload.history });
+      }
+      setBackupNote('Restored ' + payload.errors.length + ' rows.');
+      await refreshErrors_manual();
+    } catch(e){
+      setBackupNote('Restore failed: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  // Manual one-time refresh used right after a restore, since onSnapshot will
+  // also pick the change up shortly on its own — this just makes it feel instant.
+  async function refreshErrors_manual(){
+    try {
+      var snap = await getDocs(collection(fsdb, 'errors'));
+      errorsById = new Map();
+      snap.docs.forEach(function(d){ errorsById.set(d.id, d.data()); });
+      render();
+    } catch(e){ /* the live listener will catch up regardless */ }
+  }
+
   async function resetAllErrors(){
     var count = errorsById.size;
     if (!count){
@@ -1161,7 +1292,7 @@ if (!CONFIG_IS_PLACEHOLDER){
     }
     slot.innerHTML = groups.map(function(g){
       var visible = g.rows.filter(rowMatchesFilters);
-      visible.forEach(function(r){ r._sti = extractSTI(r.detail); });
+      visible.forEach(function(r){ var ids = extractIds(r.detail); r._sti = ids.sti; r._studentId = ids.studentId; });
       if (filters.sortBy === 'field'){
         visible.sort(function(a,b){
           if (a.field !== b.field) return a.field.localeCompare(b.field);
@@ -1199,18 +1330,22 @@ if (!CONFIG_IS_PLACEHOLDER){
           statusBadge = '<span class="status-pill2 reviewed">Reviewed</span>';
         }
         var noteVal = editingNotes.has(r.id) ? editingNotes.get(r.id) : (r.notes || '');
+        var studentIdChip = r._studentId ?
+          ' <span class="sti-chip" data-copy-sti="' + r._studentId + '" title="Copy Student ID">ID ' + r._studentId + ' ⧉</span>' : '';
         var stiChip = r._sti ?
-          ' <span class="sti-chip" data-copy-sti="' + r._sti + '" title="Copy Student Testing ID">' + r._sti + ' ⧉</span>' : '';
+          ' <span class="sti-chip" data-copy-sti="' + r._sti + '" title="Copy State Testing ID">STI ' + r._sti + ' ⧉</span>' : '';
         return '<tr>' +
+          '<td class="check-cell"><input type="checkbox" ' + (selectedIds.has(r.id)?'checked':'') +
+            ' data-select="' + r.id + '" title="Select for bulk copy"></td>' +
           '<td class="check-cell"><input type="checkbox" ' + (checkDisabled?'disabled':'') +
             (status==='reviewed'?'checked':'') + ' data-toggle="' + r.id + '" title="Mark reviewed"></td>' +
           '<td><span class="sev-pill ' + sevClass + '">' + r.severity + '</span></td>' +
           '<td class="row-detail"><div class="row-field">' + escapeHtml(r.field) + '</div>' +
-            escapeHtml(r.detail) + stiChip +
+            escapeHtml(r.detail) + studentIdChip + stiChip +
             '<div class="row-meta">' + statusBadge + '</div></td>' +
           '<td class="notes-cell"><textarea class="notes-input" data-notes="' + r.id + '" placeholder="Add a note for other staff…">' + escapeHtml(noteVal) + '</textarea></td>' +
         '</tr>';
-      }).join('') : '<tr class="empty-row"><td colspan="4">No rows match the current filters.</td></tr>';
+      }).join('') : '<tr class="empty-row"><td colspan="5">No rows match the current filters.</td></tr>';
 
       return '<div class="school" data-code="' + g.code + '">' +
         '<div class="school-head" data-toggle-school="' + g.code + '">' +
@@ -1224,7 +1359,7 @@ if (!CONFIG_IS_PLACEHOLDER){
           '</div>' +
         '</div>' +
         '<div class="school-body' + (collapsed?' collapsed':'') + '">' +
-          '<table class="err-table"><thead><tr><th>Reviewed</th><th>Severity</th><th>Field / detail</th><th>Notes</th></tr></thead>' +
+          '<table class="err-table"><thead><tr><th>Select</th><th>Reviewed</th><th>Severity</th><th>Field / detail</th><th>Notes</th></tr></thead>' +
           '<tbody>' + rowsHtml + '</tbody></table>' +
         '</div>' +
       '</div>';
@@ -1243,6 +1378,13 @@ if (!CONFIG_IS_PLACEHOLDER){
       el.addEventListener('change', function(){
         var key = el.getAttribute('data-toggle');
         setStatus(key, el.checked ? 'reviewed' : 'open');
+      });
+    });
+    slot.querySelectorAll('[data-select]').forEach(function(el){
+      el.addEventListener('change', function(){
+        var key = el.getAttribute('data-select');
+        if (el.checked) selectedIds.add(key); else selectedIds.delete(key);
+        updateSelectionToolbar();
       });
     });
     slot.querySelectorAll('[data-reopen]').forEach(function(el){
@@ -1301,6 +1443,49 @@ if (!CONFIG_IS_PLACEHOLDER){
     }
   }
 
+  function updateSelectionToolbar(){
+    var n = selectedIds.size;
+    document.getElementById('selectCount').textContent = n + ' selected';
+    document.getElementById('copyStisBtn').disabled = n === 0;
+    document.getElementById('copyStudentIdsBtn').disabled = n === 0;
+    document.getElementById('clearSelectionBtn').disabled = n === 0;
+  }
+
+  function setSelectNote(msg){
+    document.getElementById('selectNote').textContent = msg;
+  }
+
+  async function copySelectedIds(kind){
+    var values = [];
+    var missing = 0;
+    selectedIds.forEach(function(id){
+      var d = errorsById.get(id);
+      if (!d) return;
+      var ids = extractIds(d.detail);
+      var v = kind === 'sti' ? ids.sti : ids.studentId;
+      if (v) values.push(v); else missing++;
+    });
+    var unique = Array.from(new Set(values));
+    if (!unique.length){
+      setSelectNote('None of the selected rows had a ' + (kind === 'sti' ? 'State Testing ID' : 'Student ID') + ' to copy.');
+      return;
+    }
+    var ok = await copyToClipboard(unique.join('\n'));
+    if (ok){
+      setSelectNote('Copied ' + unique.length + ' ' + (kind === 'sti' ? 'STI' : 'Student ID') +
+        (unique.length === 1 ? '' : 's') + (missing ? ' (' + missing + ' selected row' + (missing===1?'':'s') + ' had none)' : '') + '.');
+    } else {
+      setSelectNote('Copy failed — your browser may be blocking clipboard access.');
+    }
+  }
+
+  function clearSelection(){
+    selectedIds.clear();
+    updateSelectionToolbar();
+    setSelectNote('');
+    renderSchools();
+  }
+
   async function commitNote(id, value){
     try {
       await updateDoc(doc(fsdb, 'errors', id), { notes: value });
@@ -1314,6 +1499,15 @@ if (!CONFIG_IS_PLACEHOLDER){
   // ---------- wire up static controls ----------
   document.getElementById('importBtn').addEventListener('click', processImport);
   document.getElementById('cleanupBtn').addEventListener('click', cleanupResolved);
+  document.getElementById('exportBtn').addEventListener('click', exportBackup);
+  document.getElementById('restoreBtn').addEventListener('click', function(){
+    document.getElementById('restoreFile').click();
+  });
+  document.getElementById('restoreFile').addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    restoreFromFile(file);
+    e.target.value = ''; // allow re-selecting the same file later
+  });
   document.getElementById('resetAllBtn').addEventListener('click', resetAllErrors);
   document.getElementById('searchBox').addEventListener('input', function(e){
     filters.search = e.target.value; renderSchools();
@@ -1321,6 +1515,9 @@ if (!CONFIG_IS_PLACEHOLDER){
   document.getElementById('sortSelect').addEventListener('change', function(e){
     filters.sortBy = e.target.value; renderSchools();
   });
+  document.getElementById('copyStisBtn').addEventListener('click', function(){ copySelectedIds('sti'); });
+  document.getElementById('copyStudentIdsBtn').addEventListener('click', function(){ copySelectedIds('studentId'); });
+  document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
   document.getElementById('sevSeg').addEventListener('click', function(e){
     var b = e.target.closest('button'); if(!b) return;
     document.querySelectorAll('#sevSeg button').forEach(function(x){x.classList.remove('active');});
