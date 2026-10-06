@@ -1335,14 +1335,14 @@ if (!CONFIG_IS_PLACEHOLDER){
         var stiChip = r._sti ?
           ' <span class="sti-chip" data-copy-sti="' + r._sti + '" title="Copy State Testing ID">STI ' + r._sti + ' ⧉</span>' : '';
         return '<tr>' +
-          '<td class="check-cell"><input type="checkbox" ' + (selectedIds.has(r.id)?'checked':'') +
-            ' data-select="' + r.id + '" title="Select for bulk copy"></td>' +
           '<td class="check-cell"><input type="checkbox" ' + (checkDisabled?'disabled':'') +
             (status==='reviewed'?'checked':'') + ' data-toggle="' + r.id + '" title="Mark reviewed"></td>' +
           '<td><span class="sev-pill ' + sevClass + '">' + r.severity + '</span></td>' +
           '<td class="row-detail"><div class="row-field">' + escapeHtml(r.field) + '</div>' +
             escapeHtml(r.detail) + studentIdChip + stiChip +
             '<div class="row-meta">' + statusBadge + '</div></td>' +
+          '<td class="check-cell"><input type="checkbox" ' + (selectedIds.has(r.id)?'checked':'') +
+            ' data-select="' + r.id + '" title="Select for bulk copy"></td>' +
           '<td class="notes-cell"><textarea class="notes-input" data-notes="' + r.id + '" placeholder="Add a note for other staff…">' + escapeHtml(noteVal) + '</textarea></td>' +
         '</tr>';
       }).join('') : '<tr class="empty-row"><td colspan="5">No rows match the current filters.</td></tr>';
@@ -1359,7 +1359,7 @@ if (!CONFIG_IS_PLACEHOLDER){
           '</div>' +
         '</div>' +
         '<div class="school-body' + (collapsed?' collapsed':'') + '">' +
-          '<table class="err-table"><thead><tr><th>Select</th><th>Reviewed</th><th>Severity</th><th>Field / detail</th><th>Notes</th></tr></thead>' +
+          '<table class="err-table"><thead><tr><th>Reviewed</th><th>Severity</th><th>Field / detail</th><th>Select</th><th>Notes</th></tr></thead>' +
           '<tbody>' + rowsHtml + '</tbody></table>' +
         '</div>' +
       '</div>';
