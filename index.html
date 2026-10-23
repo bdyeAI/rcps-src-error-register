@@ -646,7 +646,7 @@
     </details>
   </section>
 
-  <section>
+  <section id="importSection">
     <h2 class="section-title">Import a new extract</h2>
     <div class="import-panel">
       <textarea id="importText" placeholder="Paste the raw SSWS error report here (including the school header lines), then click Process import."></textarea>
@@ -672,7 +672,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="dangerSection">
     <h2 class="section-title">Start a new reporting period</h2>
     <div class="danger-zone">
       <p>When this submission window is completely finished, use this to clear every tracked error and start clean for the next collection (e.g. moving from Fall SRC to Spring ADM). <strong>This cannot be undone</strong> — notes, review status, and all rows across every school are deleted. The submission history log is not affected.</p>
@@ -741,24 +741,35 @@ const firebaseConfig = {
   measurementId: "G-P5YWV0EFHF"
 };
 
-// Restrict sign-in to your division's Google Workspace domain, e.g. "radford.k12.va.us".
-// Set to null to allow any Google account (not recommended for a shared internal tool).
-const ALLOWED_EMAIL_DOMAIN = "rcps.org";
-// Specific outside accounts to allow in addition to the domain above (lowercase, exact match).
-// e.g. ["jane.smith@gmail.com"] — leave empty [] if nobody outside the domain needs access.
+// Full access — can check boxes, add notes, import, clean up, and reset.
+const FULL_ACCESS_DOMAINS = ["rcps.org"];
+// Specific outside accounts that also get FULL access (lowercase, exact match).
 const EXTRA_ALLOWED_EMAILS = ["samanthaparrish@gilesk12.net"];
+// View-only — can see everything and copy IDs, but every write action is disabled
+// both in this page and in the Firestore rules themselves.
+const VIEW_ONLY_DOMAINS = ["doe.virginia.gov"];
 /* ========================================================================= */
 
-function isEmailAllowed(email){
+function getAccessLevel(email){
   var e = (email || '').toLowerCase();
-  if (ALLOWED_EMAIL_DOMAIN && e.endsWith('@' + ALLOWED_EMAIL_DOMAIN.toLowerCase())) return true;
-  if (EXTRA_ALLOWED_EMAILS.indexOf(e) !== -1) return true;
-  return false;
+  for (var i = 0; i < FULL_ACCESS_DOMAINS.length; i++){
+    if (e.endsWith('@' + FULL_ACCESS_DOMAINS[i].toLowerCase())) return 'full';
+  }
+  if (EXTRA_ALLOWED_EMAILS.indexOf(e) !== -1) return 'full';
+  for (var j = 0; j < VIEW_ONLY_DOMAINS.length; j++){
+    if (e.endsWith('@' + VIEW_ONLY_DOMAINS[j].toLowerCase())) return 'view';
+  }
+  return 'denied';
+}
+
+function isEmailAllowed(email){
+  return getAccessLevel(email) !== 'denied';
 }
 
 var CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey === "PASTE_YOUR_API_KEY";
 
 var fbApp = null, fsdb = null, auth = null, currentUser = null;
+var currentAccessLevel = 'full'; // 'full' or 'view' — set from getAccessLevel() on sign-in
 if (!CONFIG_IS_PLACEHOLDER){
   fbApp = initializeApp(firebaseConfig);
   fsdb = getFirestore(fbApp);
@@ -886,10 +897,11 @@ if (!CONFIG_IS_PLACEHOLDER){
       return;
     }
 
+    // No "hd" domain hint here — Google only supports hinting a single domain,
+    // and we now allow multiple (plus individual extra accounts), so the
+    // account picker just shows whatever Google account the person chooses;
+    // isEmailAllowed() is what actually enforces access either way.
     var googleProvider = new GoogleAuthProvider();
-    if (ALLOWED_EMAIL_DOMAIN && EXTRA_ALLOWED_EMAILS.length === 0){
-      googleProvider.setCustomParameters({ hd: ALLOWED_EMAIL_DOMAIN });
-    }
     var microsoftProvider = new OAuthProvider('microsoft.com');
 
     async function attemptSignIn(provider){
@@ -915,24 +927,47 @@ if (!CONFIG_IS_PLACEHOLDER){
 
     onAuthStateChanged(auth, function(user){
       if (user){
-        if (!isEmailAllowed(user.email)){
+        var level = getAccessLevel(user.email);
+        if (level === 'denied'){
           // signed in with a disallowed account — bounce them back to the gate
           signOut(auth);
           return;
         }
         currentUser = user;
+        currentAccessLevel = level;
         document.getElementById('signInGate').style.display = 'none';
         document.getElementById('mainApp').style.display = 'block';
         document.getElementById('userChip').style.display = 'flex';
-        document.getElementById('userChipName').textContent = user.displayName || user.email || 'Signed in';
+        document.getElementById('userChipName').textContent =
+          (user.displayName || user.email || 'Signed in') + (level === 'view' ? ' (view only)' : '');
         document.getElementById('signOutBtn').addEventListener('click', function(){ signOut(auth); });
+        applyAccessLevelToUI();
         boot();
       } else {
         currentUser = null;
+        currentAccessLevel = 'full';
         document.getElementById('signInGate').style.display = 'flex';
         document.getElementById('mainApp').style.display = 'none';
       }
     });
+  }
+
+  function isViewOnly(){ return currentAccessLevel === 'view'; }
+
+  // Hides the write-only sections entirely for view-only accounts — cleaner
+  // than showing a row of disabled buttons. The Firestore rules are the real
+  // enforcement; this is just a matching, honest UI.
+  function applyAccessLevelToUI(){
+    var importSection = document.getElementById('importSection');
+    var restoreBtn = document.getElementById('restoreBtn');
+    var dangerSection = document.getElementById('dangerSection');
+    var cleanupBtn = document.getElementById('cleanupBtn');
+    if (isViewOnly()){
+      if (importSection) importSection.style.display = 'none';
+      if (restoreBtn) restoreBtn.style.display = 'none';
+      if (dangerSection) dangerSection.style.display = 'none';
+      if (cleanupBtn) cleanupBtn.style.display = 'none';
+    }
   }
 
   function myId(){ return currentUser ? currentUser.uid : null; }
@@ -1322,7 +1357,7 @@ if (!CONFIG_IS_PLACEHOLDER){
       var rowsHtml = visible.length ? visible.map(function(r){
         var sevClass = r.severity === 'WARNING' ? 'warning' : 'fatal';
         var status = r.status || 'open';
-        var checkDisabled = status === 'resolved';
+        var checkDisabled = status === 'resolved' || isViewOnly();
         var statusBadge = '';
         if (status === 'resolved'){
           statusBadge = '<span class="status-pill2 resolved">Resolved ' + fmtDateShort(r.resolvedAt) + '</span> ' +
@@ -1344,7 +1379,7 @@ if (!CONFIG_IS_PLACEHOLDER){
             '<div class="row-meta">' + statusBadge + '</div></td>' +
           '<td class="check-cell"><input type="checkbox" ' + (selectedIds.has(r.id)?'checked':'') +
             ' data-select="' + r.id + '" title="Select for bulk copy"></td>' +
-          '<td class="notes-cell"><textarea class="notes-input" data-notes="' + r.id + '" placeholder="Add a note for other staff…">' + escapeHtml(noteVal) + '</textarea></td>' +
+          '<td class="notes-cell"><textarea class="notes-input" data-notes="' + r.id + '" ' + (isViewOnly()?'readonly':'') + ' placeholder="Add a note for other staff…">' + escapeHtml(noteVal) + '</textarea></td>' +
         '</tr>';
       }).join('') : '<tr class="empty-row"><td colspan="5">No rows match the current filters.</td></tr>';
 
